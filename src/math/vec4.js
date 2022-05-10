@@ -48,6 +48,18 @@ class Vec4 {
     }
 
     /**
+     * Vector elements in the form of a flat array
+     *
+     * @returns {[number, number, number, number]} An array containing [x, y, z, w]
+     * @example
+     * // Outputs [10, 20, 30, 40]
+     * console.log(new pc.Vec2(10, 20, 30, 40).data);
+     */
+    get data() {
+        return [this.x, this.y, this.z, this.w];
+    }
+
+    /**
      * Adds a 4-dimensional vector to another in place.
      *
      * @param {Vec4} rhs - The vector to add to the specified vector.

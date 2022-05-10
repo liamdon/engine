@@ -49,6 +49,18 @@ class Color {
     }
 
     /**
+     * Color elements in the form of a flat array
+     *
+     * @returns {[number, number, number, number]} An array containing [r, g, b, a]
+     * @example
+     * // Outputs [0.25, 0.5, 0.75, 1]
+     * console.log(new pc.Color(0.25, 0.5, 0.75, 1).data);
+     */
+    get data() {
+        return [this.r, this.g, this.b, this.a];
+    }
+
+    /**
      * Returns a clone of the specified color.
      *
      * @returns {Color} A duplicate color object.

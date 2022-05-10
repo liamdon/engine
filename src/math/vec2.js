@@ -32,6 +32,18 @@ class Vec2 {
     }
 
     /**
+     * Vector elements in the form of a flat array
+     *
+     * @returns {[number, number]} An array containing [x, y]
+     * @example
+     * // Outputs [10, 20]
+     * console.log(new pc.Vec2(10, 20).data);
+     */
+    get data() {
+        return [this.x, this.y];
+    }
+
+    /**
      * Adds a 2-dimensional vector to another in place.
      *
      * @param {Vec2} rhs - The vector to add to the specified vector.

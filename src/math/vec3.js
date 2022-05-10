@@ -40,6 +40,18 @@ class Vec3 {
     }
 
     /**
+     * Vector elements in the form of a flat array
+     *
+     * @returns {[number, number, number]} An array containing [x, y, z]
+     * @example
+     * // Outputs [10, 20, 30]
+     * console.log(new pc.Vec2(10, 20, 30).data);
+     */
+    get data() {
+        return [this.x, this.y, this.z];
+    }
+
+    /**
      * Adds a 3-dimensional vector to another in place.
      *
      * @param {Vec3} rhs - The vector to add to the specified vector.

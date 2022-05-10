@@ -51,6 +51,18 @@ class Quat {
     }
 
     /**
+     * Quaternion elements in the form of a flat array
+     *
+     * @returns {[number, number, number, number]} An array containing [x, y, z, w]
+     * @example
+     * // Outputs [10, 20, 30, 1]
+     * console.log(new pc.Vec2(10, 20, 30, 1).data);
+     */
+    get data() {
+        return [this.x, this.y, this.z, this.w];
+    }
+
+    /**
      * Returns an identical copy of the specified quaternion.
      *
      * @returns {Quat} A quaternion containing the result of the cloning.
