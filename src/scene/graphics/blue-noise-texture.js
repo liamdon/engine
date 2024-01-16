@@ -12,6 +12,7 @@ function getBlueNoiseTexture(device) {
 
         const data = blueNoiseData();
         const size = 32;
+        const depth = 4;
 
         // On WebGPU we use a 2D texture array, while on WebGL2 we use a 3D texture
         // This is because:
@@ -24,7 +25,7 @@ function getBlueNoiseTexture(device) {
                 width: size,
                 height: size,
                 volume: false,
-                arrayLength: size,
+                arrayLength: depth,
                 format: PIXELFORMAT_L8,
                 addressU: ADDRESS_REPEAT,
                 addressV: ADDRESS_REPEAT,
@@ -40,7 +41,7 @@ function getBlueNoiseTexture(device) {
                 name: `BlueNoise${size}`,
                 width: size,
                 height: size,
-                depth: size,
+                depth: depth,
                 volume: true,
                 format: PIXELFORMAT_L8,
                 addressU: ADDRESS_REPEAT,
@@ -52,8 +53,8 @@ function getBlueNoiseTexture(device) {
                 mipmaps: false
             });
             const textureData = texture.lock();
-            for (let i = 0; i < size; i++) {
-                textureData.set(data[i], i * 32 * 32);
+            for (let i = 0; i < depth; i++) {
+                textureData.set(data[i], i * size * size);
             }
             texture.unlock();
         }

@@ -1230,7 +1230,7 @@ class Renderer {
         this.blueNoiseTextureId.setValue(getBlueNoiseTexture(this.device));
 
         // Increment blue noise frame
-        this.blueNoiseFrame = (this.blueNoiseFrame + 1) % 32;
+        this.blueNoiseFrame = (this.blueNoiseFrame + 1) % 4;
         this.blueNoiseFrameId.setValue(this.blueNoiseFrame);
     }
 

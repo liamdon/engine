@@ -1,5 +1,8 @@
 export default /* glsl */`
 
+const float blueNoiseSize = 32.0;
+const float blueNoiseDepth = 4.0;
+
 #ifndef DITHER_BAYER8
 #ifdef WEBGPU
     precision highp sampler2DArray;
@@ -8,7 +11,7 @@ export default /* glsl */`
 #else
     precision highp sampler3D;
     uniform sampler3D blueNoiseTex32;
-    const float depthDivisor = 32.0;
+    const float depthDivisor = blueNoiseDepth;
 #endif
 uniform float blueNoiseFrame;
 #endif
@@ -24,8 +27,10 @@ void opacityDither(float alpha, float id) {
 
     #else   // blue noise
 
-        vec2 uv2D = fract(gl_FragCoord.xy / 32.0 + blueNoiseJitter.xy + id);
-        vec3 uv3D = vec3(uv2D, blueNoiseFrame / depthDivisor);
+        float depthTime = float(int(blueNoiseFrame) % int(blueNoiseDepth)) / depthDivisor;
+
+        vec2 uv2D = fract(gl_FragCoord.xy / blueNoiseSize + blueNoiseJitter.xy + id);
+        vec3 uv3D = vec3(uv2D, depthTime);
         float noise = texture(blueNoiseTex32, uv3D).r;
 
     #endif
