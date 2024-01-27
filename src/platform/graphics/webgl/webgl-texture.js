@@ -415,7 +415,7 @@ class WebglTexture {
         while (texture._levels[mipLevel] || mipLevel === 0) {
 
             if (texture.lockedLevel !== -1 && mipLevel !== texture.lockedLevel) {
-                // If we have a locked mip level, only upload that mip
+                // If we have locked a single mip level, only upload that mip
                 mipLevel++;
                 continue;
             } else if (!texture._needsUpload && mipLevel === 0) {
