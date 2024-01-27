@@ -301,6 +301,12 @@ class WebgpuTexture {
             const requiredMipLevels = texture.requiredMipLevels;
             for (let mipLevel = 0; mipLevel < requiredMipLevels; mipLevel++) {
 
+                // If we have a locked mip level, only upload that mip
+                if (texture.lockedLevel !== -1 && mipLevel !== texture.lockedLevel) {
+                    mipLevel++;
+                    continue;
+                }
+
                 const mipObject = texture._levels[mipLevel];
                 if (mipObject) {
 

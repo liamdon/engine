@@ -378,6 +378,17 @@ class Texture {
     }
 
     /**
+     * If a texture lock is active and a specific mip level was specificed, returns the locked
+     * mip level. If no mip level was specified or a lock is not active, returns -1.
+     *
+     * @ignore
+     * @type {number}
+     */
+    get lockedLevel() {
+        return this._lockedLevel;
+    }
+
+    /**
      * The minification filter to be applied to the texture. Can be:
      *
      * - {@link FILTER_NEAREST}
