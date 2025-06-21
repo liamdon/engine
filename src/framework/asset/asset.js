@@ -10,6 +10,21 @@ import { http } from '../../platform/net/http.js';
 /**
  * @import { AssetRegistry } from './asset-registry.js'
  * @import { ResourceLoaderCallback } from '../handlers/loader.js'
+ * @import { Animation } from '../../scene/animation/animation.js'
+ * @import { AnimClip } from '../anim/evaluator/anim-clip.js'
+ * @import { AnimStateGraph } from '../anim/state-graph/anim-state-graph.js'
+ * @import { Sound } from '../../platform/sound/sound.js'
+ * @import { ContainerResource } from '../handlers/container.js'
+ * @import { Font } from '../font/font.js'
+ * @import { GSplatResource } from '../../scene/gsplat/gsplat-resource.js'
+ * @import { GSplatCompressedResource } from '../../scene/gsplat/gsplat-compressed-resource.js'
+ * @import { Material } from '../../scene/materials/material.js'
+ * @import { Model } from '../../scene/model.js'
+ * @import { Render } from '../../scene/render.js'
+ * @import { Sprite } from '../../scene/sprite.js'
+ * @import { Texture } from '../../platform/graphics/texture.js'
+ * @import { TextureAtlas } from '../../scene/texture-atlas.js'
+ * @import { Scene } from '../../scene/scene.js'
  */
 
 // auto incrementing number for asset ids
@@ -32,7 +47,38 @@ const VARIANT_DEFAULT_PRIORITY = ['pvr', 'dxt', 'etc2', 'etc1', 'basis'];
  * @returns {void}
  */
 
+/* eslint-disable jsdoc/require-property-description */
 /**
+ * @typedef {Object} AssetTypeMap
+ * @property {Animation | undefined} animation
+ * @property {AnimClip | undefined} animclip
+ * @property {AnimStateGraph | undefined} animstategraph
+ * @property {Sound | undefined} audio
+ * @property {ArrayBuffer | undefined} binary
+ * @property {ContainerResource | undefined} container
+ * @property {Texture | undefined} cubemap
+ * @property {string | undefined} css
+ * @property {Font | undefined} font
+ * @property {GSplatResource | GSplatCompressedResource | undefined} gsplat
+ * @property {object | undefined} json
+ * @property {string | undefined} html
+ * @property {Material | undefined} material
+ * @property {Model | undefined} model
+ * @property {Render | undefined} render
+ * @property {object | undefined} script
+ * @property {string | undefined} shader
+ * @property {Sprite | undefined} sprite
+ * @property {object | undefined} template
+ * @property {string | undefined} text
+ * @property {Texture | undefined} texture
+ * @property {TextureAtlas | undefined} textureatlas
+ * @property {Scene | undefined} scene
+ * @property {object | undefined} unknown
+ */
+/* eslint-enable jsdoc/require-property-description */
+
+/**
+ * @template {keyof AssetTypeMap} [T=keyof AssetTypeMap]
  * An asset record of a file or data resource that can be loaded by the engine. The asset contains
  * four important fields:
  *
@@ -219,7 +265,7 @@ class Asset extends EventHandler {
     /**
      * The type of the asset.
      *
-     * @type {"animation"|"audio"|"binary"|"container"|"cubemap"|"css"|"font"|"gsplat"|"json"|"html"|"material"|"model"|"render"|"script"|"shader"|"sprite"|"template"|"text"|"texture"|"textureatlas"}
+     * @type {T}
      */
     type;
 
@@ -237,7 +283,7 @@ class Asset extends EventHandler {
      *
      * @param {string} name - A non-unique but human-readable name which can be later used to
      * retrieve the asset.
-     * @param {"animation"|"audio"|"binary"|"container"|"cubemap"|"css"|"font"|"gsplat"|"json"|"html"|"material"|"model"|"render"|"script"|"shader"|"sprite"|"template"|"text"|"texture"|"textureatlas"} type - Type of asset.
+     * @param {T | "animation"|"audio"|"binary"|"container"|"cubemap"|"css"|"font"|"gsplat"|"json"|"html"|"material"|"model"|"render"|"script"|"shader"|"sprite"|"template"|"text"|"texture"|"textureatlas"|"scene"|"unknown"} type - Type of asset.
      * @param {object} [file] - Details about the file the asset is made from. At the least must
      * contain the 'url' field. For assets that don't contain file data use null.
      * @param {string} [file.url] - The URL of the resource file that contains the asset data.
@@ -384,7 +430,7 @@ class Asset extends EventHandler {
     /**
      * Sets the asset resource. For example, a {@link StandardMaterial} or a {@link Texture}.
      *
-     * @type {object}
+     * @type {T extends keyof AssetTypeMap ? AssetTypeMap[T] : object}
      */
     set resource(value) {
         const _old = this._resources[0];
@@ -395,7 +441,7 @@ class Asset extends EventHandler {
     /**
      * Gets the asset resource.
      *
-     * @type {object}
+     * @type {T extends keyof AssetTypeMap ? AssetTypeMap[T] : object}
      */
     get resource() {
         return this._resources[0];
@@ -405,7 +451,7 @@ class Asset extends EventHandler {
      * Sets the asset resources. Some assets can hold more than one runtime resource (cube maps,
      * for example).
      *
-     * @type {object[]}
+     * @type {T extends keyof AssetTypeMap ? AssetTypeMap[T][] : object[]}
      */
     set resources(value) {
         const _old = this._resources;
@@ -416,7 +462,7 @@ class Asset extends EventHandler {
     /**
      * Gets the asset resources.
      *
-     * @type {object[]}
+     * @type {T extends keyof AssetTypeMap ? AssetTypeMap[T][] : object[]}
      */
     get resources() {
         return this._resources;
