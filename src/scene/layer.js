@@ -101,6 +101,40 @@ class Layer {
     shadowCastersSet = new Set();
 
     /**
+     * Inactive mesh instances - completely excluded from all renderer loops.
+     * These instances are removed from meshInstances[] and will not be processed
+     * during culling, rendering, or any other render-related operations until reactivated.
+     *
+     * @type {MeshInstance[]}
+     * @private
+     */
+    _inactiveMeshInstances = [];
+
+    /**
+     * Inactive mesh instances stored in a set for O(1) lookup.
+     *
+     * @type {Set<MeshInstance>}
+     * @private
+     */
+    _inactiveMeshInstancesSet = new Set();
+
+    /**
+     * Inactive shadow casters - excluded from shadow rendering.
+     *
+     * @type {MeshInstance[]}
+     * @private
+     */
+    _inactiveShadowCasters = [];
+
+    /**
+     * Inactive shadow casters stored in a set for O(1) lookup.
+     *
+     * @type {Set<MeshInstance>}
+     * @private
+     */
+    _inactiveShadowCastersSet = new Set();
+
+    /**
      * Visible (culled) mesh instances assigned to this layer. Looked up by the Camera.
      *
      * @type {WeakMap<Camera, CulledInstances>}
@@ -486,7 +520,8 @@ class Layer {
         // add mesh instances to the layer's array and the set
         for (let i = 0; i < meshInstances.length; i++) {
             const mi = meshInstances[i];
-            if (!destMeshInstancesSet.has(mi)) {
+            // Skip if already in active OR inactive sets
+            if (!destMeshInstancesSet.has(mi) && !this._inactiveMeshInstancesSet.has(mi)) {
                 destMeshInstances.push(mi);
                 destMeshInstancesSet.add(mi);
                 _tempMaterials.add(mi.material);
@@ -532,7 +567,7 @@ class Layer {
         for (let i = 0; i < meshInstances.length; i++) {
             const mi = meshInstances[i];
 
-            // remove from mesh instances list
+            // remove from active mesh instances list
             if (destMeshInstancesSet.has(mi)) {
                 destMeshInstancesSet.delete(mi);
                 const j = destMeshInstances.indexOf(mi);
@@ -540,11 +575,43 @@ class Layer {
                     destMeshInstances.splice(j, 1);
                 }
             }
+
+            // also remove from inactive set if present
+            if (this._inactiveMeshInstancesSet.has(mi)) {
+                this._inactiveMeshInstancesSet.delete(mi);
+                const j = this._inactiveMeshInstances.indexOf(mi);
+                if (j >= 0) {
+                    this._inactiveMeshInstances.splice(j, 1);
+                }
+            }
         }
 
         // shadow casters
         if (!skipShadowCasters) {
             this.removeShadowCasters(meshInstances);
+            this._removeInactiveShadowCasters(meshInstances);
+        }
+    }
+
+    /**
+     * Remove mesh instances from inactive shadow caster lists.
+     *
+     * @param {MeshInstance[]} meshInstances - Instances to remove.
+     * @private
+     */
+    _removeInactiveShadowCasters(meshInstances) {
+        const shadowCasters = this._inactiveShadowCasters;
+        const shadowCastersSet = this._inactiveShadowCastersSet;
+
+        for (let i = 0; i < meshInstances.length; i++) {
+            const mi = meshInstances[i];
+            if (shadowCastersSet.has(mi)) {
+                shadowCastersSet.delete(mi);
+                const j = shadowCasters.indexOf(mi);
+                if (j >= 0) {
+                    shadowCasters.splice(j, 1);
+                }
+            }
         }
     }
 
@@ -600,10 +667,164 @@ class Layer {
         this.meshInstances.length = 0;
         this.meshInstancesSet.clear();
 
+        // Also clear inactive instances
+        this._inactiveMeshInstances.length = 0;
+        this._inactiveMeshInstancesSet.clear();
+
         if (!skipShadowCasters) {
             this.shadowCasters.length = 0;
             this.shadowCastersSet.clear();
+
+            this._inactiveShadowCasters.length = 0;
+            this._inactiveShadowCastersSet.clear();
         }
+    }
+
+    /**
+     * Mark a mesh instance as inactive or active. Inactive instances are completely excluded from
+     * all renderer loops (culling, rendering, shadow casting) until reactivated. This is more
+     * efficient than setting .visible = false for long-term hidden objects, as inactive instances
+     * are removed from the main meshInstances array and will not be iterated during rendering.
+     *
+     * Use this for:
+     * - Long-term deactivation (seconds, minutes, hours)
+     * - Object pooling systems
+     * - Region streaming / LOD management
+     * - Large batches of temporarily unused instances
+     *
+     * Use .visible = false for:
+     * - Quick show/hide toggles (every frame or frequent changes)
+     * - Temporary visibility changes
+     *
+     * @param {MeshInstance} meshInstance - The mesh instance to mark as inactive or active.
+     * @param {boolean} inactive - True to mark inactive (exclude from rendering), false to
+     * reactivate (include in rendering).
+     * @returns {boolean} True if the state changed, false if already in the requested state or if
+     * the mesh instance is not in this layer.
+     * @example
+     * // Deactivate a mesh instance for object pooling
+     * layer.setMeshInstanceInactive(meshInstance, true);
+     *
+     * // Reactivate it later when needed
+     * layer.setMeshInstanceInactive(meshInstance, false);
+     */
+    setMeshInstanceInactive(meshInstance, inactive) {
+        if (inactive) {
+            // DEACTIVATE: Move from active to inactive
+
+            // Check if already inactive
+            if (this._inactiveMeshInstancesSet.has(meshInstance)) {
+                return false; // Already inactive
+            }
+
+            // Check if in active set
+            if (!this.meshInstancesSet.has(meshInstance)) {
+                Debug.warn('Cannot deactivate mesh instance: not found in layer');
+                return false;
+            }
+
+            // Remove from active arrays
+            this.meshInstancesSet.delete(meshInstance);
+            const idx = this.meshInstances.indexOf(meshInstance);
+            if (idx >= 0) {
+                this.meshInstances.splice(idx, 1);
+            }
+
+            // Add to inactive arrays
+            this._inactiveMeshInstancesSet.add(meshInstance);
+            this._inactiveMeshInstances.push(meshInstance);
+
+            // Handle shadow casters
+            if (this.shadowCastersSet.has(meshInstance)) {
+                this.shadowCastersSet.delete(meshInstance);
+                const shadowIdx = this.shadowCasters.indexOf(meshInstance);
+                if (shadowIdx >= 0) {
+                    this.shadowCasters.splice(shadowIdx, 1);
+                }
+
+                this._inactiveShadowCastersSet.add(meshInstance);
+                this._inactiveShadowCasters.push(meshInstance);
+            }
+
+            return true;
+
+        } else {
+            // REACTIVATE: Move from inactive to active
+
+            // Check if actually inactive
+            if (!this._inactiveMeshInstancesSet.has(meshInstance)) {
+                return false; // Not inactive
+            }
+
+            // Remove from inactive arrays
+            this._inactiveMeshInstancesSet.delete(meshInstance);
+            const idx = this._inactiveMeshInstances.indexOf(meshInstance);
+            if (idx >= 0) {
+                this._inactiveMeshInstances.splice(idx, 1);
+            }
+
+            // Add back to active arrays
+            this.meshInstancesSet.add(meshInstance);
+            this.meshInstances.push(meshInstance);
+
+            // Handle shadow casters
+            if (this._inactiveShadowCastersSet.has(meshInstance)) {
+                this._inactiveShadowCastersSet.delete(meshInstance);
+                const shadowIdx = this._inactiveShadowCasters.indexOf(meshInstance);
+                if (shadowIdx >= 0) {
+                    this._inactiveShadowCasters.splice(shadowIdx, 1);
+                }
+
+                // Only add back to shadow casters if it still casts shadows
+                if (meshInstance.castShadow) {
+                    this.shadowCastersSet.add(meshInstance);
+                    this.shadowCasters.push(meshInstance);
+                }
+            }
+
+            return true;
+        }
+    }
+
+    /**
+     * Mark multiple mesh instances as inactive or active in a single batch operation.
+     * More efficient than calling setMeshInstanceInactive() repeatedly.
+     *
+     * @param {MeshInstance[]} meshInstances - Array of mesh instances to mark.
+     * @param {boolean} inactive - True to mark inactive, false to reactivate.
+     * @returns {number} The number of instances whose state changed.
+     * @example
+     * // Deactivate all mesh instances in a region
+     * const count = layer.setMeshInstancesInactive(regionMeshes, true);
+     * console.log(`Deactivated ${count} mesh instances`);
+     */
+    setMeshInstancesInactive(meshInstances, inactive) {
+        let changed = 0;
+        for (let i = 0; i < meshInstances.length; i++) {
+            if (this.setMeshInstanceInactive(meshInstances[i], inactive)) {
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Check if a mesh instance is currently inactive in this layer.
+     *
+     * @param {MeshInstance} meshInstance - The mesh instance to check.
+     * @returns {boolean} True if the mesh instance is inactive, false otherwise.
+     */
+    isMeshInstanceInactive(meshInstance) {
+        return this._inactiveMeshInstancesSet.has(meshInstance);
+    }
+
+    /**
+     * Get all inactive mesh instances in this layer.
+     *
+     * @returns {MeshInstance[]} Read-only array of inactive mesh instances.
+     */
+    getInactiveMeshInstances() {
+        return this._inactiveMeshInstances;
     }
 
     markLightsDirty() {
