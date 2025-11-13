@@ -361,6 +361,74 @@ class Mat4 {
     }
 
     /**
+     * Multiplies two affine transformation matrices that are known to have unit scale.
+     * This is an optimized version of mulAffine2 for transforms containing only rotation
+     * and translation (no scale). Both input matrices must have unit scale for correct results.
+     *
+     * @param {Mat4} lhs - The 4x4 matrix used as the first multiplicand of the operation (parent transform).
+     * @param {Mat4} rhs - The 4x4 matrix used as the second multiplicand of the operation (child transform).
+     * @returns {Mat4} Self for chaining.
+     * @private
+     */
+    mulAffine2NoScale(lhs, rhs) {
+        const a = lhs.data;
+        const b = rhs.data;
+        const r = this.data;
+
+        const a00 = a[0];
+        const a01 = a[1];
+        const a02 = a[2];
+        const a10 = a[4];
+        const a11 = a[5];
+        const a12 = a[6];
+        const a20 = a[8];
+        const a21 = a[9];
+        const a22 = a[10];
+        const a30 = a[12];
+        const a31 = a[13];
+        const a32 = a[14];
+
+        // For unit scale transforms, the 3x3 rotation matrix multiplication
+        // is the same as mulAffine2, but we can be confident that no scale
+        // is being compounded through the hierarchy
+        let b0, b1, b2;
+
+        b0 = b[0];
+        b1 = b[1];
+        b2 = b[2];
+        r[0]  = a00 * b0 + a10 * b1 + a20 * b2;
+        r[1]  = a01 * b0 + a11 * b1 + a21 * b2;
+        r[2]  = a02 * b0 + a12 * b1 + a22 * b2;
+        r[3] = 0;
+
+        b0 = b[4];
+        b1 = b[5];
+        b2 = b[6];
+        r[4]  = a00 * b0 + a10 * b1 + a20 * b2;
+        r[5]  = a01 * b0 + a11 * b1 + a21 * b2;
+        r[6]  = a02 * b0 + a12 * b1 + a22 * b2;
+        r[7] = 0;
+
+        b0 = b[8];
+        b1 = b[9];
+        b2 = b[10];
+        r[8]  = a00 * b0 + a10 * b1 + a20 * b2;
+        r[9]  = a01 * b0 + a11 * b1 + a21 * b2;
+        r[10] = a02 * b0 + a12 * b1 + a22 * b2;
+        r[11] = 0;
+
+        b0 = b[12];
+        b1 = b[13];
+        b2 = b[14];
+        r[12] = a00 * b0 + a10 * b1 + a20 * b2 + a30;
+        r[13] = a01 * b0 + a11 * b1 + a21 * b2 + a31;
+        r[14] = a02 * b0 + a12 * b1 + a22 * b2 + a32;
+        r[15] = 1;
+
+        return this;
+    }
+
+    /**
      * Multiplies the current instance by the specified 4x4 matrix.
      *
      * @param {Mat4} rhs - The 4x4 matrix used as the second multiplicand of the operation.
@@ -965,10 +1033,6 @@ class Mat4 {
         const qz = r.z;
         const qw = r.w;
 
-        const sx = s.x;
-        const sy = s.y;
-        const sz = s.z;
-
         const x2 = qx + qx;
         const y2 = qy + qy;
         const z2 = qz + qz;
@@ -984,20 +1048,42 @@ class Mat4 {
 
         const m = this.data;
 
-        m[0] = (1 - (yy + zz)) * sx;
-        m[1] = (xy + wz) * sx;
-        m[2] = (xz - wy) * sx;
-        m[3] = 0;
+        // Fast path for unit scale - skip 9 scale multiplications
+        if (s.x === 1 && s.y === 1 && s.z === 1) {
+            m[0] = 1 - (yy + zz);
+            m[1] = xy + wz;
+            m[2] = xz - wy;
+            m[3] = 0;
 
-        m[4] = (xy - wz) * sy;
-        m[5] = (1 - (xx + zz)) * sy;
-        m[6] = (yz + wx) * sy;
-        m[7] = 0;
+            m[4] = xy - wz;
+            m[5] = 1 - (xx + zz);
+            m[6] = yz + wx;
+            m[7] = 0;
 
-        m[8] = (xz + wy) * sz;
-        m[9] = (yz - wx) * sz;
-        m[10] = (1 - (xx + yy)) * sz;
-        m[11] = 0;
+            m[8] = xz + wy;
+            m[9] = yz - wx;
+            m[10] = 1 - (xx + yy);
+            m[11] = 0;
+        } else {
+            const sx = s.x;
+            const sy = s.y;
+            const sz = s.z;
+
+            m[0] = (1 - (yy + zz)) * sx;
+            m[1] = (xy + wz) * sx;
+            m[2] = (xz - wy) * sx;
+            m[3] = 0;
+
+            m[4] = (xy - wz) * sy;
+            m[5] = (1 - (xx + zz)) * sy;
+            m[6] = (yz + wx) * sy;
+            m[7] = 0;
+
+            m[8] = (xz + wy) * sz;
+            m[9] = (yz - wx) * sz;
+            m[10] = (1 - (xx + yy)) * sz;
+            m[11] = 0;
+        }
 
         m[12] = t.x;
         m[13] = t.y;
