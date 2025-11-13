@@ -228,6 +228,24 @@ class GraphNode extends EventHandler {
     _worldScaleSign = 0;
 
     /**
+     * Tracks whether this node's localScale is exactly (1, 1, 1). Used to optimize transform
+     * calculations by skipping scale multiplications.
+     *
+     * @type {boolean}
+     * @private
+     */
+    _hasUnitScale = true;
+
+    /**
+     * Tracks whether this node and all of its ancestors up to the root have unit scale.
+     * Enables significant optimizations in hierarchy transformation calculations.
+     *
+     * @type {boolean}
+     * @private
+     */
+    _ancestorsHaveUnitScale = true;
+
+    /**
      * @type {Mat3}
      * @private
      */
@@ -1137,6 +1155,15 @@ class GraphNode extends EventHandler {
             this.localScale.set(x, y, z);
         }
 
+        // Update unit scale flag
+        const hadUnitScale = this._hasUnitScale;
+        this._hasUnitScale = (this.localScale.x === 1 && this.localScale.y === 1 && this.localScale.z === 1);
+
+        // If unit scale status changed, propagate to children
+        if (hadUnitScale !== this._hasUnitScale) {
+            this._updateAncestorsHaveUnitScale();
+        }
+
         if (!this._dirtyLocal) {
             this._dirtifyLocal();
         }
@@ -1183,6 +1210,21 @@ class GraphNode extends EventHandler {
         this._dirtyNormal = true;
         this._worldScaleSign = 0;   // world matrix is dirty, mark this flag dirty too
         this._aabbVer++;
+    }
+
+    /** @private */
+    _updateAncestorsHaveUnitScale() {
+        // Recalculate whether this node and all ancestors have unit scale
+        const newValue = this._hasUnitScale && (!this._parent || this._parent._ancestorsHaveUnitScale);
+
+        if (this._ancestorsHaveUnitScale !== newValue) {
+            this._ancestorsHaveUnitScale = newValue;
+
+            // Propagate change to all children
+            for (let i = 0; i < this._children.length; i++) {
+                this._children[i]._updateAncestorsHaveUnitScale();
+            }
+        }
     }
 
     /**
@@ -1457,6 +1499,9 @@ class GraphNode extends EventHandler {
         // The graph depth of the child and all of its descendants will now change
         node._updateGraphDepth();
 
+        // Update unit scale flags for the child and its descendants
+        node._updateAncestorsHaveUnitScale();
+
         // The child (plus subhierarchy) will need world transforms to be recalculated
         node._dirtifyWorld();
         // node might be already marked as dirty, in that case the whole chain stays frozen, so let's enforce unfreeze
@@ -1503,6 +1548,9 @@ class GraphNode extends EventHandler {
 
         // Clear parent
         child._parent = null;
+
+        // Update unit scale flags for the removed child and its descendants
+        child._updateAncestorsHaveUnitScale();
 
         // NOTE: see PR #4047 - this fix is removed for now as it breaks other things
         // notify the child hierarchy it has been removed from the parent,
@@ -1569,7 +1617,12 @@ class GraphNode extends EventHandler {
                     this.worldTransform.setTRS(scaleCompensatePos, scaleCompensateRot, scale);
 
                 } else {
-                    this.worldTransform.mulAffine2(this._parent.worldTransform, this.localTransform);
+                    // Use optimized matrix multiplication for unit scale chains
+                    if (this._hasUnitScale && this._parent._ancestorsHaveUnitScale) {
+                        this.worldTransform.mulAffine2NoScale(this._parent.worldTransform, this.localTransform);
+                    } else {
+                        this.worldTransform.mulAffine2(this._parent.worldTransform, this.localTransform);
+                    }
                 }
             }
 
